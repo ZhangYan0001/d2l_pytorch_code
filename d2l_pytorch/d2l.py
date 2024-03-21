@@ -5,6 +5,10 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.utils.data
 
+def set_figsize(figsize):
+  use_svg_display()
+  plt.rcParams["figure.figsize"] = figsize
+
 
 def use_svg_display():
   display.set_matplotlib_formats("svg")
@@ -46,10 +50,10 @@ def get_fashion_mnist_labels(labels):
 
 def load_data_fashion_mnist(batch_size: int):
   mnist_train = torchvision.datasets.FashionMNIST(
-    root="./Datasets/", train=True, download=True, transform=transforms.ToTensor()
+    root="../Datasets/", train=True, download=True, transform=transforms.ToTensor()
   )
   mnist_test = torchvision.datasets.FashionMNIST(
-    root="./Datasets/", train=False, download=True, transform=transforms.ToTensor()
+    root="../Datasets/", train=False, download=True, transform=transforms.ToTensor()
   )
   num_workers = 4
   train_iter = torch.utils.data.DataLoader(
