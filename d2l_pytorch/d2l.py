@@ -1,10 +1,17 @@
 import torch
+from torch import nn
 from IPython import display
 from matplotlib import pyplot as plt
 import torchvision
 import torchvision.transforms as transforms
 import torch.utils.data
 
+class FlattenLayer(nn.Module):
+  def __init(self):
+    super(FlattenLayer,self).__init__()
+  
+  def forward(self,x):
+    return x.view(x.shape[0],-1)
 def set_figsize(figsize):
   use_svg_display()
   plt.rcParams["figure.figsize"] = figsize
