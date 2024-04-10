@@ -162,11 +162,11 @@ def train_ch5(net, train_iter, test_iter, batch_size, optimizer, device, num_epo
       X = X.to(device)
       y = y.to(device)
       y_hat = net(X)
-      l = loss(y_hat, y)
+      l1 = loss(y_hat, y)
       optimizer.zero_grad()
-      l.backward()
+      l1.backward()
       optimizer.step()
-      train_l_sum += l.cpu().item()
+      train_l_sum += l1.cpu().item()
       train_acc_sum += (y_hat.argmax(dim=1) == y).sum().cpu().item()
       n += y.shape[0]
       batch_count += 1
@@ -239,3 +239,14 @@ def data_iter_random(corpus_indices, batch_size, num_steps, device=None):
       torch.tensor(X, dtype=torch.float32, device=device),
       torch.tensor(Y, dtype=torch.float32, device=device),
     )
+
+
+def one_hot(x, n_class, dtype=torch.float32):
+  x = x.long()
+  res = torch.zeros(x.shape[0], n_class, dtype=dtype, device=x.device)
+  res.scatter_(1, x.view(-1, 1), 1)
+  return res
+
+
+def to_onehot(X, n_class):
+  return [one_hot(X[:, i], n_class) for i in range(X.shape[1])]
