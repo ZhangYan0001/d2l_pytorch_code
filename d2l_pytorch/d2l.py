@@ -1,5 +1,6 @@
 import torch
 import time
+import random
 from torch import nn
 from IPython import display
 from matplotlib import pyplot as plt
@@ -200,3 +201,41 @@ def load_data_fashion_mnist_ch5(batch_size, resize=None, root: str = ""):
     )
 
   return train_iter, test_iter
+
+
+def load_data_jay_lyrics(file_path: str):
+  with open(file_path, "r", encoding="utf-8") as f:
+    corpus_chars = f.read()
+
+  corpus_chars.replace("\n", " ").replace("\r", " ")
+  corpus_chars = corpus_chars[:10000]
+
+  idx_to_char = list(set(corpus_chars))
+  char_to_idx = dict([(char, i) for i, char in enumerate(idx_to_char)])
+  vocab_size = len(char_to_idx)
+  corpus_indices = [char_to_idx[char] for char in corpus_chars]
+  return corpus_indices, char_to_idx, idx_to_char, vocab_size
+
+
+def data_iter_random(corpus_indices, batch_size, num_steps, device=None):
+  num_examples = (len(corpus_indices) - 1) // num_steps
+  epoch_size = num_examples
+
+  example_indices = list(range(num_examples))
+  random.shuffle(example_indices)
+
+  def _data(pos):
+    return corpus_indices[pos : pos + num_steps]
+
+  if device is None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+  for i in range(epoch_size):
+    i = i * batch_size
+    batch_indices = example_indices[i : i + batch_size]
+    X = [_data(j * num_steps) for j in batch_indices]
+    Y = [_data(j * num_steps + 1) for j in batch_indices]
+    yield (
+      torch.tensor(X, dtype=torch.float32, device=device),
+      torch.tensor(Y, dtype=torch.float32, device=device),
+    )
