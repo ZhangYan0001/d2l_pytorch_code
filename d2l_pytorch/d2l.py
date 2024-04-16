@@ -19,6 +19,22 @@ class FlattenLayer(nn.Module):
     return x.view(x.shape[0], -1)
 
 
+class RNNModel(nn.Module):
+  def __init__(self, rnn_layer, vocab_size):
+    super(RNNModel, self).__init__()
+    self.rnn = rnn_layer
+    self.hidden_size = rnn_layer.hidden_size * (2 if rnn_layer.bidirectional else 1)
+    self.vocab_size = vocab_size
+    self.dense = nn.Linear(self.hidden_size, vocab_size)
+    self.state = None
+
+  def forward(self, inputs, state):
+    X = to_onehot(inputs, self.vocab_size)
+    Y, self.state = self.rnn(torch.stack(X), state)
+    output = self.dense(Y.view(-1, Y.shape[-1]))
+    return output, self.state
+
+
 def set_figsize(figsize):
   use_svg_display()
   plt.rcParams["figure.figsize"] = figsize
