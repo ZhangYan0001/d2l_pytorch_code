@@ -9,6 +9,11 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.utils.data
 import torch.nn.functional as F
+import sys
+import os
+import collections
+import torchtext.vocab as Vocab
+from tqdm import tqdm
 
 
 class FlattenLayer(nn.Module):
@@ -478,3 +483,100 @@ def train_and_predict_rnn_pytorch(
             prefix, pred_len, model, vocab_size, device, idx_to_char, char_to_idx
           ),
         )
+
+
+def read_imdb(folder="train", data_root: str = ""):
+  data = []
+  for label in ["pos", "neg"]:
+    folder_name = os.path.join(data_root, folder, label)
+
+    for file in tqdm(os.listdir(folder_name)):
+      with open(os.path.join(folder_name, file), "rb") as f:
+        review = f.read().decode("utf-8").replace("\n", "").lower()
+        data.append([review, 1 if label == "pos" else 0])
+
+  random.shuffle(data)
+  return data
+
+
+# 预处理数据
+# 分词
+def get_tokenized_imdb(data):
+  """
+  data: list of [string, label]
+  """
+
+  def tokenizer(text):
+    return [tok.lower() for tok in text.split(" ")]
+
+  return [tokenizer(review) for review, _ in data]
+
+
+# 创建字典
+def get_vocab_imdb(data):
+  tokenized_data = get_tokenized_imdb(data)
+  counter = collections.Counter([tk for st in tokenized_data for tk in st])
+  return Vocab.Vocab(counter, min_freq=5)
+
+
+def preprocess_imdb(data, vocab):
+  max_l = 500
+
+  def pad(x):
+    return x[:max_l] if len(x) > max_l else x + [0] * (max_l - len(x))
+
+  tokenized_data = get_tokenized_imdb(data)
+  features = torch.tensor([pad([vocab.stoi[word] for word in words]) for words in tokenized_data])
+  labels = torch.tensor([score for _, score in data])
+  return features, labels
+
+
+def load_pretrained_embedding(words, pretrained_vocab):
+  """从预训练好的vocab中提取出words对应的词向量"""
+  embed = torch.zeros(len(words), pretrained_vocab.vectors[0].shape[0])  # 初始化为0
+  oov_count = 0  # out of vocabulary
+  for i, word in enumerate(words):
+    try:
+      idx = pretrained_vocab.stoi[word]
+      embed[i, :] = pretrained_vocab.vectors[idx]
+    except KeyError:
+      oov_count += 1
+
+  if oov_count > 0:
+    print("There are %d oov words." % oov_count)
+  return embed
+
+
+def train(train_iter, test_iter, net, loss, optimizer, device, num_epochs):
+  net = net.to(device)
+  print("training on ", device)
+  batch_count = 0
+  for epoch in range(num_epochs):
+    train_l_sum, train_acc_sum, n, start = 0.0, 0.0, 0, time.time()
+
+    for X, y in train_iter:
+      X = X.to(device)
+      y = y.to(device)
+      y_hat = net(X)
+      l1 = loss(y_hat, y)
+      optimizer.zero_grad()
+      l1.backward()
+      optimizer.step()
+      train_l_sum += l1.cpu().item()
+      train_acc_sum += (y_hat.argmax(dim=1) == y).sum().cpu().item()
+      n += y.shape[0]
+      batch_count += 1
+
+    test_acc = evaluate_accuracy(test_iter, net)
+    print(
+      "epoch %d, loss %.4f, train acc %.3f, test acc %.3f , time %.1f sec"
+      % (epoch + 1, train_l_sum / batch_count, train_acc_sum / n, test_acc, time.time() - start)
+    )
+
+
+def predict_sentiment(net, vocab, sentence):
+  """sentence是词语的列表"""
+  device = list(net.parameters())[0].device
+  sentence = torch.tensor([vocab.stoi[word] for word in sentence], device=device)
+  label = torch.argmax(net(sentence.view((1, -1))), dim=1)
+  return "positive" if label.item() == 1 else "negative"
